@@ -1,17 +1,17 @@
 # SMS TR Spring Boot Starter
 
-Türkiye'deki SMS sağlayıcıları için Spring Boot 4 starter'ı. Netgsm, İleti Merkezi, Verimor ve Mutlucell tek bir API arkasında çalışır. Sağlayıcı değiştirmek bir satırlık ayardır. Retry, fallback, OTP ve teslimat raporu da kutudan çıkar çıkmaz hazırdır.
+A Spring Boot 4 starter for Turkish SMS providers. Netgsm, İleti Merkezi, Verimor and Mutlucell sit behind one API. Switching providers is a one-line setting. Retry, failover, OTP and delivery reports work out of the box.
 
-- **Sağlayıcı değiştirme ve fallback.** Varsayılan sağlayıcı başarısız olursa sıradakine geçilir. Geçişe hata türü karar verir.
-- **Güvenli retry.** Geçici hatalar tekrar denenir. İstek gittikten sonra cevap gelmezse (read timeout) tekrar denenmez, böylece müşteriye aynı SMS iki kez gitmez.
-- **OTP.** Kod üretme, gönderme ve doğrulama hazırdır. Kod hash'lenerek saklanır. Deneme limiti, süre sonu ve tekrar gönderme bekleme süresi uygulanır.
-- **Teslimat raporu.** Raporlar sorgulanabilir (pull) ya da webhook ile alınır (push). Push ile gelen raporlar Spring event olarak yayınlanır.
-- **İYS.** Mesaj türünü (`TRANSACTIONAL`, `OTP`, `COMMERCIAL_INDIVIDUAL`, `COMMERCIAL_MERCHANT`) bir kez seçersiniz. Her sağlayıcının kendi İYS alanını starter doldurur.
-- **Genişletilebilir.** Yeni bir sağlayıcı, tek bir arayüzü implemente eden bir bean'dir.
+- **Provider switching and failover.** When the default provider fails, the next one is tried. The kind of failure decides whether that happens.
+- **Safe retries.** Temporary failures are retried. A request that was sent but got no answer (a read timeout) is not retried, so a customer never receives the same SMS twice.
+- **OTP.** Generating, sending and verifying codes is built in. Codes are stored hashed, with an attempt limit, an expiry and a resend cooldown.
+- **Delivery reports.** Query them (pull) or receive them through a webhook (push). Pushed reports are published as Spring events.
+- **İYS.** Choose the message type once (`TRANSACTIONAL`, `OTP`, `COMMERCIAL_INDIVIDUAL`, `COMMERCIAL_MERCHANT`). The starter fills in each provider's own İYS fields.
+- **Extensible.** A new provider is one bean that implements one interface.
 
-Gereksinimler: Java 17+, Spring Boot 4.x.
+Requirements: Java 17+, Spring Boot 4.x.
 
-## Kurulum
+## Installation
 
 ```xml
 <dependency>
@@ -23,39 +23,39 @@ Gereksinimler: Java 17+, Spring Boot 4.x.
 
 Gradle: `implementation("io.github.hozdemir.smstr:sms-tr-spring-boot-starter:0.1.0")`
 
-## Yapılandırma
+## Configuration
 
-Bir sağlayıcının kimlik bilgilerini girdiğinizde o sağlayıcı etkinleşir. Tek sağlayıcı varsa `default-provider` gerekmez.
+A provider is enabled when its credentials are set. With a single provider, `default-provider` is not needed.
 
 ```yaml
 sms:
   default-provider: netgsm
-  fallback: [verimor]            # netgsm başarısız olursa sırayla denenir
+  fallback: [verimor]            # tried in order when netgsm fails
 
   netgsm:
-    username: 8501234567         # abone numarası
-    password: ${NETGSM_PASSWORD} # "API Kullanıcısı" alt kullanıcısının şifresi
-    sender: MARKAM
-    otp-endpoint: false          # true: OTP'ler Netgsm'in öncelikli OTP hattından gider (OTP paketi gerekir)
+    username: 8501234567         # subscriber number (abone numarası)
+    password: ${NETGSM_PASSWORD} # password of an "API Kullanıcısı" sub-user
+    sender: MYBRAND
+    otp-endpoint: false          # true: OTPs use Netgsm's priority OTP route (needs an OTP package)
 
   verimor:
     username: 908501234567
     password: ${VERIMOR_PASSWORD}
-    sender: MARKAM               # boş bırakılırsa hesaptaki ilk başlık kullanılır
+    sender: MYBRAND              # optional; Verimor uses the account's first header when omitted
 
   iletimerkezi:
     api-key: ${ILETIMERKEZI_KEY}
-    api-hash: ${ILETIMERKEZI_HASH} # panelde key'in yanında gösterilen hash
-    sender: MARKAM
+    api-hash: ${ILETIMERKEZI_HASH} # the hash shown in the panel next to the key
+    sender: MYBRAND
 
   mutlucell:
-    username: kullanici
+    username: myuser
     password: ${MUTLUCELL_PASSWORD}
-    sender: MARKAM
-    brand-code: "123456"         # yalnızca ticari ileti için (İYS marka kodu)
+    sender: MYBRAND
+    brand-code: "123456"         # İYS brand code, only for commercial messages
 
   retry:
-    max-attempts: 3              # sağlayıcı başına toplam deneme
+    max-attempts: 3              # total attempts per provider
     initial-delay: 500ms
     multiplier: 2.0
     max-delay: 5s
@@ -65,27 +65,27 @@ sms:
     read: 10s
 ```
 
-Eksik ya da çelişkili ayar varsa uygulama açılırken durur ve eksik property'nin adını söyler. Örnek mesajlar: `sms.netgsm.password must be set` ve `choose one with sms.default-provider`.
+Missing or conflicting settings stop the application at startup, and the message names the property. Examples: `sms.netgsm.password must be set` and `choose one with sms.default-provider`.
 
-## Kullanım
+## Usage
 
 ```java
 @Service
-class SiparisBildirimi {
+class OrderNotifications {
 
     private final SmsClient sms;
 
-    SiparisBildirimi(SmsClient sms) {
+    OrderNotifications(SmsClient sms) {
         this.sms = sms;
     }
 
-    void kargoyaVerildi(String telefon) {
-        sms.send(telefon, "Siparişiniz kargoya verildi.");
+    void shipped(String phone) {
+        sms.send(phone, "Siparişiniz kargoya verildi.");
     }
 
-    void kampanya(List<PhoneNumber> aliciler) {
+    void campaign(List<PhoneNumber> recipients) {
         SendResult result = sms.send(SmsMessage.builder()
-                .to(aliciler)
+                .to(recipients)
                 .text("Hafta sonuna özel %20 indirim")
                 .type(MessageType.COMMERCIAL_INDIVIDUAL)
                 .scheduledAt(Instant.parse("2026-11-01T07:00:00Z"))
@@ -94,37 +94,37 @@ class SiparisBildirimi {
 }
 ```
 
-Numaralar `+90 532 123 45 67`, `0532 123 4567`, `905321234567` ya da `5321234567` biçiminde verilebilir. Her sağlayıcıya kendi beklediği formatta gönderilir.
+Numbers may be written as `+90 532 123 45 67`, `0532 123 4567`, `905321234567` or `5321234567`. Each provider receives the format it expects.
 
-Belirli bir sağlayıcıyı zorlamak için `sms.using("verimor").send(...)` kullanın. Bu çağrı retry yapar, fallback yapmaz.
+To force one provider, call `sms.using("verimor").send(...)`. That call retries but does not fail over.
 
-### Hatalar, retry ve fallback
+### Failures, retry and failover
 
-Her hata bir `SmsProviderException` olarak gelir. Exception'ın `kind()` değeri retry ve fallback davranışını belirler. `providerCode()` sağlayıcının kendi hata kodunu verir.
+Every failure is an `SmsProviderException`. Its `kind()` decides retry and failover, and `providerCode()` gives the provider's own error code.
 
-| `FailureKind` | Örnek | Aynı sağlayıcıda tekrar | Sonraki sağlayıcıya geç |
+| `FailureKind` | Example | Retry same provider | Fail over to next |
 |---|---|---|---|
-| `TRANSIENT` | Bağlantı kurulamadı, 502/503, sağlayıcı sistem hatası | evet | evet |
-| `RATE_LIMITED` | HTTP 429, Netgsm `80`/`85` | evet | evet |
-| `AUTHENTICATION` | Yanlış şifre, izin verilmeyen IP | hayır | evet |
-| `INSUFFICIENT_CREDIT` | Kredi yetersiz | hayır | evet |
-| `SENDER_NOT_ALLOWED` | Başlık tanımsız, İYS yetkisi yok, OTP paketi yok | hayır | evet |
-| `INVALID_REQUEST` | Geçersiz numara veya metin | hayır | hayır |
-| `AMBIGUOUS` | Read timeout, 500/504. Mesaj gitmiş olabilir | hayır* | hayır* |
-| `UNKNOWN` | Tanınmayan hata kodu, mesaj kabul edilmedi | hayır | evet |
+| `TRANSIENT` | Could not connect, 502/503, provider system error | yes | yes |
+| `RATE_LIMITED` | HTTP 429, Netgsm `80`/`85` | yes | yes |
+| `AUTHENTICATION` | Wrong password, IP not allowed | no | yes |
+| `INSUFFICIENT_CREDIT` | Out of credit | no | yes |
+| `SENDER_NOT_ALLOWED` | Header not defined, no İYS permission, no OTP package | no | yes |
+| `INVALID_REQUEST` | Invalid number or text | no | no |
+| `AMBIGUOUS` | Read timeout, 500/504; the message may have gone out | no* | no* |
+| `UNKNOWN` | Unrecognised error code; the message was not accepted | no | yes |
 
-\* `sms.retry.retry-ambiguous=true` ile açılır. Bu durumda çift gönderim olasılığını kabul etmiş olursunuz.
+\* Enable with `sms.retry.retry-ambiguous=true`, which accepts the risk of duplicate messages.
 
 ### OTP
 
 ```java
-OtpSendResult sent = otpService.send(PhoneNumber.of(telefon), "login");
+OtpSendResult sent = otpService.send(PhoneNumber.of(phone), "login");
 if (sent instanceof OtpSendResult.Throttled t) {
-    // t.retryAfter() kadar beklenmeli
+    // wait t.retryAfter()
 }
 
-OtpVerification result = otpService.verify(PhoneNumber.of(telefon), "login", girilenKod);
-if (result.isVerified()) { ... }   // aksi halde INVALID_CODE, EXPIRED, TOO_MANY_ATTEMPTS, NOT_FOUND
+OtpVerification result = otpService.verify(PhoneNumber.of(phone), "login", enteredCode);
+if (result.isVerified()) { ... }   // otherwise INVALID_CODE, EXPIRED, TOO_MANY_ATTEMPTS, NOT_FOUND
 ```
 
 ```yaml
@@ -137,51 +137,51 @@ sms:
     template: "Doğrulama kodunuz: {code}"
 ```
 
-Varsayılan `InMemoryOtpStore` tek instance için uygundur. Birden fazla instance çalışıyorsa paylaşılan bir `OtpStore` bean'i tanımlayın, örneğin Redis üzerinde. Atomik olması gereken tek işlem `incrementAttempts` metodudur.
+The default `InMemoryOtpStore` suits a single instance. With several instances, define a shared `OtpStore` bean, for example on Redis. The only operation that must be atomic is `incrementAttempts`.
 
-### Teslimat raporu
+### Delivery reports
 
-Raporu sorgulamak (pull) için:
+To query (pull):
 
 ```java
 List<DeliveryReport> reports = sms.deliveryReports(result.messageId());
 ```
 
-`MessageId` gönderen sağlayıcının bilgisini taşır. Bu yüzden mesaj fallback ile başka bir sağlayıcıdan gittiyse bile sorgu doğru sağlayıcıya yapılır.
+A `MessageId` carries the provider that sent the message. The query reaches the right provider even when the message went out through failover.
 
-Push ile almak için önce webhook'u açın:
+To receive reports by push, first enable the webhook:
 
 ```yaml
 sms:
   webhook:
     enabled: true
-    token: ${SMS_WEBHOOK_TOKEN}   # en az 16 karakter
+    token: ${SMS_WEBHOOK_TOKEN}   # at least 16 characters
 ```
 
-Ardından sağlayıcı panelinde callback adresi olarak `https://uygulamaniz/sms/webhooks/{provider}/{token}` adresini girin. Gelen raporları dinlemek için:
+Then enter `https://your-app/sms/webhooks/{provider}/{token}` as the callback URL in the provider's panel. To listen for incoming reports:
 
 ```java
 @EventListener
 void on(SmsEvent.DeliveryReportReceived event) { ... }
 ```
 
-`SmsEvent.Sent` ve `SmsEvent.Failed` olayları da yayınlanır.
+`SmsEvent.Sent` and `SmsEvent.Failed` are published as well.
 
-### Sağlayıcı farkları
+### Provider differences
 
 | | Netgsm | İleti Merkezi | Verimor | Mutlucell |
 |---|---|---|---|---|
-| Pull rapor | evet. Her job id dakikada bir sorgulanabilir | evet | evet. Dakikada 20 istek | evet. **15 dakikadan sık sorgulamak hesabı bloke ettirir** |
-| Push rapor (webhook) | yok | evet. Panelden tek URL | evet. OİM'den tek URL | yok |
-| Ayrı OTP hattı | evet. `otp-endpoint: true` ile açılır | yok | yok | yok |
-| Türkçe karakter | otomatik | panel ayarı | otomatik | otomatik |
-| Kredi yetersizliği | raporda görünür, gönderimde hata vermez | gönderimde hata | gönderimde hata | gönderimde hata |
+| Pull reports | yes; each job id once per minute | yes | yes; 20 requests per minute | yes; **polling more often than every 15 minutes gets the account blocked** |
+| Push reports (webhook) | no | yes; one URL, set in the panel | yes; one URL, set in OİM | no |
+| Dedicated OTP route | yes; enable with `otp-endpoint: true` | no | no | no |
+| Turkish characters | automatic | panel setting | automatic | automatic |
+| Insufficient credit | shows in the report, not at send time | error at send time | error at send time | error at send time |
 
-Mutlucell'in 15 dakika sınırını starter da uygular. Aynı paket daha erken tekrar sorgulanırsa istek Mutlucell'e gitmez, `RATE_LIMITED` hatası döner. Verimor gönderimleri için sunucu IP'nizin OİM'de izinli olması gerekir. Her API sözleşmesinin kaynaklı ayrıntıları [docs/provider-apis.md](docs/provider-apis.md) dosyasındadır.
+The starter enforces Mutlucell's 15-minute limit itself. Querying the same package sooner never reaches Mutlucell and fails with `RATE_LIMITED`. Verimor only accepts sends from server IPs allowed in OİM. Every API contract is documented with sources in [docs/provider-apis.md](docs/provider-apis.md).
 
-## Yeni sağlayıcı eklemek
+## Adding a provider
 
-`SmsProvider` arayüzünü implemente edip bean olarak kaydedin. Routing, retry, fallback ve OTP başka bir ayar gerektirmeden çalışır.
+Implement `SmsProvider` and register it as a bean. Routing, retry, failover and OTP then work with no other setup.
 
 ```java
 @Component
@@ -194,8 +194,8 @@ class AcmeSmsProvider implements SmsProvider, DeliveryReportQuery {
 
     @Override
     public SendResult send(SmsMessage message) {
-        // Tek deneme yapın. Retry'ı starter yönetir.
-        // Hataları doğru FailureKind ile SmsProviderException olarak fırlatın.
+        // Make one attempt; the starter handles retries.
+        // Throw SmsProviderException with an accurate FailureKind.
     }
 
     @Override
@@ -203,30 +203,30 @@ class AcmeSmsProvider implements SmsProvider, DeliveryReportQuery {
 }
 ```
 
-Sağlayıcıyı `sms.default-provider=acme` ile varsayılan yapabilir ya da `sms.fallback` listesine ekleyebilirsiniz. Push rapor destekliyorsa `DeliveryReportWebhook` arayüzünü de implemente edin. HTTP kodu yazarken `ProviderHttp.exchange` ve `ProviderHttp.statusFailure` metotları ağ hatalarını sınıflandırır.
+Make it the default with `sms.default-provider=acme`, or add it to `sms.fallback`. If the provider pushes reports, also implement `DeliveryReportWebhook`. For the HTTP code, `ProviderHttp.exchange` and `ProviderHttp.statusFailure` classify network failures.
 
-Starter'ın tanımladığı her bean (`SmsClient`, `OtpStore`, `ResiliencePolicy`, yerleşik sağlayıcılar) aynı tipte kendi bean'inizi tanımladığınızda geri çekilir.
+Every bean the starter defines (`SmsClient`, `OtpStore`, `ResiliencePolicy`, the built-in providers) backs off when you define your own bean of the same type.
 
-## Modüller
+## Modules
 
-- `sms-tr-core` Spring Boot'a bağlı değildir. Domain modeli, istemci, OTP ve sağlayıcılar buradadır.
-- `sms-tr-spring-boot-autoconfigure` auto-configuration ve properties'i içerir.
-- `sms-tr-spring-boot-starter` uygulamaya eklenecek tek bağımlılıktır.
+- `sms-tr-core` does not depend on Spring Boot. It holds the domain model, the client, OTP and the providers.
+- `sms-tr-spring-boot-autoconfigure` holds the auto-configuration and the properties.
+- `sms-tr-spring-boot-starter` is the single dependency an application adds.
 
-## Geliştirme ve yayın
+## Development and release
 
 ```bash
 ./mvnw verify
 ```
 
-Maven Central'a yayın için şunlar gerekir:
+Publishing to Maven Central needs:
 
-1. Central Portal'da `io.github.hozdemir` namespace'i doğrulanmış olmalı.
-2. Bir GPG anahtarı olmalı.
-3. GitHub secret'ları tanımlanmalı: `CENTRAL_USERNAME`, `CENTRAL_PASSWORD`, `GPG_PRIVATE_KEY`, `GPG_PASSPHRASE`.
+1. The `io.github.hozdemir` namespace verified on the Central Portal.
+2. A GPG key.
+3. These GitHub secrets: `CENTRAL_USERNAME`, `CENTRAL_PASSWORD`, `GPG_PRIVATE_KEY`, `GPG_PASSPHRASE`.
 
-Bunlar hazırsa `v0.1.0` gibi bir tag push'lamak `.github/workflows/release.yml` workflow'unu çalıştırır. İlk sürümler Portal'a yüklenir ve Portal'da "Publish" ile elle yayınlanır (`autoPublish=false`).
+With those in place, pushing a tag such as `v0.1.0` runs `.github/workflows/release.yml`. Early releases are uploaded to the Portal and published there by hand with "Publish" (`autoPublish=false`).
 
-## Lisans
+## License
 
 Apache License 2.0
