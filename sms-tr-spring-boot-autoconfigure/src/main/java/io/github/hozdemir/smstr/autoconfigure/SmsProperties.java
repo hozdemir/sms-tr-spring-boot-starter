@@ -43,7 +43,7 @@ public record SmsProperties(
     }
 
     /**
-     * @param template message text; must contain {@code {code}}
+     * @param template message text; the "{code}" placeholder is replaced with the code
      */
     public record Otp(
             @DefaultValue("6") int length,
@@ -65,21 +65,34 @@ public record SmsProperties(
             @Nullable String token) {
     }
 
+    /**
+     * @param username subscriber number (abone numarası)
+     * @param password password of an "API Kullanıcısı" sub-user; the main account password is refused
+     * @param otpEndpoint send OTP messages through Netgsm's OTP route; needs an OTP package on the account
+     */
     public record Netgsm(
             @Nullable String username,
             @Nullable String password,
             @Nullable String sender,
             @Nullable String appName,
+            @DefaultValue("false") boolean otpEndpoint,
             @DefaultValue("https://api.netgsm.com.tr") String baseUrl) {
     }
 
+    /**
+     * @param apiHash the hash shown in the panel next to the API key
+     */
     public record IletiMerkezi(
             @Nullable String apiKey,
-            @Nullable String apiSecret,
+            @Nullable String apiHash,
             @Nullable String sender,
             @DefaultValue("https://api.iletimerkezi.com") String baseUrl) {
     }
 
+    /**
+     * @param username the account's phone number, e.g. 908501234567
+     * @param sender optional; Verimor uses the account's first header when omitted
+     */
     public record Verimor(
             @Nullable String username,
             @Nullable String password,
@@ -87,10 +100,14 @@ public record SmsProperties(
             @DefaultValue("https://sms.verimor.com.tr") String baseUrl) {
     }
 
+    /**
+     * @param brandCode İYS brand code, needed only for commercial messages
+     */
     public record Mutlucell(
             @Nullable String username,
             @Nullable String password,
             @Nullable String sender,
+            @Nullable String brandCode,
             @DefaultValue("https://smsgw.mutlucell.com") String baseUrl) {
     }
 }

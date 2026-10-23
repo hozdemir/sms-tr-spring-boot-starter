@@ -24,7 +24,7 @@ public enum FailureKind {
 
     INSUFFICIENT_CREDIT(false, true),
 
-    /** Sender header (başlık) not defined, or the account lacks İYS permission for this message type. */
+    /** The account may not send this: sender header (başlık) not defined, no İYS permission, no OTP package. */
     SENDER_NOT_ALLOWED(false, true),
 
     /** Invalid number, text or parameters: every provider would refuse it. */
