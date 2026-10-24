@@ -1,5 +1,9 @@
 # SMS TR Spring Boot Starter
 
+[![Maven Central](https://img.shields.io/maven-central/v/io.github.hozdemir.smstr/sms-tr-spring-boot-starter)](https://central.sonatype.com/artifact/io.github.hozdemir.smstr/sms-tr-spring-boot-starter)
+[![CI](https://github.com/hozdemir/sms-tr-spring-boot-starter/actions/workflows/ci.yml/badge.svg)](https://github.com/hozdemir/sms-tr-spring-boot-starter/actions/workflows/ci.yml)
+[![License](https://img.shields.io/badge/license-Apache%202.0-blue)](LICENSE)
+
 A Spring Boot 4 starter for Turkish SMS providers. Netgsm, İleti Merkezi, Verimor, Mutlucell and VatanSMS sit behind one API. Switching providers is a one-line setting. Retry, failover, OTP and delivery reports work out of the box.
 
 - **Provider switching and failover.** When the default provider fails, the next one is tried. The kind of failure decides whether that happens.
@@ -253,7 +257,7 @@ Run it without any provider account; messages go to the log:
 
 ```bash
 ./mvnw -pl sms-tr-samples -am install -DskipTests
-java -jar sms-tr-samples/target/sms-tr-samples-0.1.0-SNAPSHOT.jar
+java -jar sms-tr-samples/target/sms-tr-samples-*-SNAPSHOT.jar
 
 curl -X POST localhost:8080/otp/send -H 'Content-Type: application/json' -d '{"phone":"05321234567"}'
 # read the code from the log, then:
@@ -267,19 +271,15 @@ curl -X POST localhost:8080/otp/verify -H 'Content-Type: application/json' -d '{
 - `sms-tr-spring-boot-starter` is the single dependency an application adds.
 - `sms-tr-samples` holds the examples. It is not published.
 
-## Development and release
+## Building from source
+
+Requires Java 17+. The Maven wrapper downloads Maven itself.
 
 ```bash
 ./mvnw verify
 ```
 
-Publishing to Maven Central needs:
-
-1. The `io.github.hozdemir` namespace verified on the Central Portal.
-2. A GPG key.
-3. These GitHub secrets: `CENTRAL_USERNAME`, `CENTRAL_PASSWORD`, `GPG_PRIVATE_KEY`, `GPG_PASSPHRASE`.
-
-With those in place, pushing a tag such as `v0.1.0` runs `.github/workflows/release.yml`. Early releases are uploaded to the Portal and published there by hand with "Publish" (`autoPublish=false`).
+Maintainers: the release process is in [RELEASING.md](RELEASING.md).
 
 ## License
 
