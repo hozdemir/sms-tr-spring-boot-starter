@@ -23,7 +23,8 @@ public record SmsProperties(
         @DefaultValue Netgsm netgsm,
         @DefaultValue IletiMerkezi iletimerkezi,
         @DefaultValue Verimor verimor,
-        @DefaultValue Mutlucell mutlucell) {
+        @DefaultValue Mutlucell mutlucell,
+        @DefaultValue VatanSms vatansms) {
 
     /**
      * @param maxAttempts attempts per provider, including the first; 1 disables retries
@@ -109,5 +110,15 @@ public record SmsProperties(
             @Nullable String sender,
             @Nullable String brandCode,
             @DefaultValue("https://smsgw.mutlucell.com") String baseUrl) {
+    }
+
+    /**
+     * @param apiId shown under Hesabım > API Bilgilerimi Görüntüle, next to the key
+     */
+    public record VatanSms(
+            @Nullable String apiId,
+            @Nullable String apiKey,
+            @Nullable String sender,
+            @DefaultValue("https://api.vatansms.net") String baseUrl) {
     }
 }

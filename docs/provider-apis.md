@@ -723,3 +723,66 @@ Points that should shape the common abstraction:
 7. **İYS defaults diverge.** İleti Merkezi rejects a send without an explicit `iys`. A "message category" (transactional vs commercial with BIREYSEL/TACIR) in the common request maps cleanly to all four.
 8. **OTP as a first-class operation** maps to a dedicated endpoint only on Netgsm. That endpoint enforces single recipient, no Turkish chars and a single segment, and needs an OTP package. Other providers fall back to normal send.
 9. **Response parsing must tolerate plain text** (Mutlucell always; Verimor per user guide and OpenAPI spec, with a JSON variant shown on the new docs site).
+
+---
+
+## 6. VatanSMS
+
+Added 2026-10-24.
+
+**Primary sources.**
+
+- Official API page: https://www.vatansms.net/sms-api (with per-language pages such as https://www.vatansms.net/sms-api/java-sms-gonderme-api). Read as raw HTML.
+- Official SDKs linked from that page: https://github.com/vayztr/vatansmsnet-php , https://github.com/vayztr/vatansmsnet-dotnet , https://github.com/vayztr/vatansmsnet-delphi . The Packagist package `vatanyazilim/vatansmsnet-php` (https://github.com/vatanyazilim/vatansmsnet-php) has the same code, with default base URL `https://api.toplusmspaketleri.com/api/v1`.
+
+The older XML endpoint `https://panel.vatansms.com/panel/smsgonder1Npost.php` (used by `fatihgirgic/laravel-sms-api`) is not mentioned on the official API page and is not used.
+
+### 6.1 Auth
+
+`api_id` and `api_key` in the JSON body of every request, taken from "Hesabım > API Bilgilerimi Görüntüle". Source: official API page.
+
+A request with invalid credentials returns HTTP `401` with `{"message":"Unauthorized"}`. Source: observed on 2026-10-24 with a deliberately invalid key against `/api/v1/1toN` and `/api/v1/report/single`.
+
+### 6.2 Send SMS
+
+`POST https://api.vatansms.net/api/v1/1toN`, `Content-Type: application/json`. Source: official API page.
+
+```json
+{
+  "api_id": "API_ID",
+  "api_key": "API_KEY",
+  "sender": "SMSBASLIGINIZ",
+  "message_type": "normal",
+  "message": "Bu bir test mesajıdır.",
+  "message_content_type": "bilgi",
+  "phones": ["5xxxxxxxxx", "5xxxxxxxxx"]
+}
+```
+
+| Field | Meaning |
+|---|---|
+| `sender` | Header defined on the account. |
+| `message_type` | `normal`, or `turkce` for Turkish characters. No Unicode value is documented (**UNVERIFIED**: emoji support). |
+| `message_content_type` | `bilgi` (informational) or `ticari` (commercial). No BIREYSEL/TACIR distinction is documented (**UNVERIFIED**). |
+| `phones` | Array of `5xxxxxxxxx` numbers. |
+| `send_time` | Optional, `Y-m-d H:i:s`. Omit to send now. |
+
+`POST /api/v1/NtoN` takes `phones` as `[{"phone","message"}]` for different texts.
+
+### 6.3 Send response
+
+Not documented by any official source. Each official SDK returns the raw body. The .NET SDK treats any non-2xx HTTP status as an error. The API page says `report_id` is "the `id` returned after each send", so the response has an `id`.
+
+Third-party integrations check `status === "success"` and `status !== "error"` (e.g. https://github.com/mertcan-mutlu/gt_eticaret `hf-element/vatansms.php`, https://github.com/BYSiriusApps/SiriPlan-App `src/lib/sms.ts`). **UNVERIFIED**: the full success shape and every error code.
+
+The implementation reads `status` and `id`, maps HTTP status through the shared table, and treats `status: "error"` as `UNKNOWN` (no retry, failover allowed).
+
+### 6.4 Delivery report (pull)
+
+`POST /api/v1/report/single` with `report_id` (result summary), and `POST /api/v1/report/detail?page=&pageSize=` with `report_id` (per-number detail, 20 per page by default, 1 to 100). Source: official API page.
+
+**The response format and status values are not documented.** The provider therefore does not implement `DeliveryReportQuery`; guessing a status mapping could report undelivered messages as delivered.
+
+### 6.5 Push / OTP
+
+No webhook and no dedicated OTP endpoint are documented. OTP goes through `1toN` with `message_content_type: "bilgi"`.

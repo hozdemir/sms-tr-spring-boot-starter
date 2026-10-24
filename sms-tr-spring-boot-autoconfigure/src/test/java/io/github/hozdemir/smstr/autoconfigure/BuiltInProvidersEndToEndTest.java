@@ -52,6 +52,10 @@ class BuiltInProvidersEndToEndTest {
             record(exchange);
             respond(exchange, 200, "777");
         });
+        server.createContext("/api/v1/1toN", exchange -> {
+            record(exchange);
+            respond(exchange, 200, "{\"status\":\"success\",\"id\":926410}");
+        });
         server.start();
     }
 
@@ -98,6 +102,18 @@ class BuiltInProvidersEndToEndTest {
 
                     assertThat(result.provider()).isEqualTo(ProviderId.VERIMOR);
                     assertThat(result.messageId().value()).isEqualTo("777");
+                });
+    }
+
+    @Test
+    void sendsThroughVatanSmsConfiguredByProperties() {
+        runner.withPropertyValues("sms.vatansms.api-id=ID", "sms.vatansms.api-key=KEY", "sms.vatansms.sender=BASLIK",
+                "sms.vatansms.base-url=" + baseUrl()).run(context -> {
+                    var result = context.getBean(SmsClient.class).send("05321234567", "Merhaba");
+
+                    assertThat(result.provider()).isEqualTo(ProviderId.VATANSMS);
+                    assertThat(result.messageId().value()).isEqualTo("926410");
+                    assertThat(requests).singleElement().asString().contains("\"phones\":[\"5321234567\"]");
                 });
     }
 

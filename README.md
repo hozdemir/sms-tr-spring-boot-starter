@@ -1,6 +1,6 @@
 # SMS TR Spring Boot Starter
 
-A Spring Boot 4 starter for Turkish SMS providers. Netgsm, İleti Merkezi, Verimor and Mutlucell sit behind one API. Switching providers is a one-line setting. Retry, failover, OTP and delivery reports work out of the box.
+A Spring Boot 4 starter for Turkish SMS providers. Netgsm, İleti Merkezi, Verimor, Mutlucell and VatanSMS sit behind one API. Switching providers is a one-line setting. Retry, failover, OTP and delivery reports work out of the box.
 
 - **Provider switching and failover.** When the default provider fails, the next one is tried. The kind of failure decides whether that happens.
 - **Safe retries.** Temporary failures are retried. A request that was sent but got no answer (a read timeout) is not retried, so a customer never receives the same SMS twice.
@@ -53,6 +53,11 @@ sms:
     password: ${MUTLUCELL_PASSWORD}
     sender: MYBRAND
     brand-code: "123456"         # İYS brand code, only for commercial messages
+
+  vatansms:
+    api-id: ${VATANSMS_API_ID}   # Hesabım > API Bilgilerimi Görüntüle
+    api-key: ${VATANSMS_API_KEY}
+    sender: MYBRAND
 
   retry:
     max-attempts: 3              # total attempts per provider
@@ -169,15 +174,15 @@ void on(SmsEvent.DeliveryReportReceived event) { ... }
 
 ### Provider differences
 
-| | Netgsm | İleti Merkezi | Verimor | Mutlucell |
-|---|---|---|---|---|
-| Pull reports | yes; each job id once per minute | yes | yes; 20 requests per minute | yes; **polling more often than every 15 minutes gets the account blocked** |
-| Push reports (webhook) | no | yes; one URL, set in the panel | yes; one URL, set in OİM | no |
-| Dedicated OTP route | yes; enable with `otp-endpoint: true` | no | no | no |
-| Turkish characters | automatic | panel setting | automatic | automatic |
-| Insufficient credit | shows in the report, not at send time | error at send time | error at send time | error at send time |
+| | Netgsm | İleti Merkezi | Verimor | Mutlucell | VatanSMS |
+|---|---|---|---|---|---|
+| Pull reports | yes; each job id once per minute | yes | yes; 20 requests per minute | yes; **polling more often than every 15 minutes gets the account blocked** | no; the response format is undocumented |
+| Push reports (webhook) | no | yes; one URL, set in the panel | yes; one URL, set in OİM | no | no |
+| Dedicated OTP route | yes; enable with `otp-endpoint: true` | no | no | no | no |
+| Turkish characters | automatic | panel setting | automatic | automatic | automatic |
+| Insufficient credit | shows in the report, not at send time | error at send time | error at send time | error at send time | undocumented |
 
-The starter enforces Mutlucell's 15-minute limit itself. Querying the same package sooner never reaches Mutlucell and fails with `RATE_LIMITED`. Verimor only accepts sends from server IPs allowed in OİM. Every API contract is documented with sources in [docs/provider-apis.md](docs/provider-apis.md).
+The starter enforces Mutlucell's 15-minute limit itself. Querying the same package sooner never reaches Mutlucell and fails with `RATE_LIMITED`. Verimor only accepts sends from server IPs allowed in OİM. VatanSMS documents its requests but not its responses or error codes, so its failures are classified by HTTP status, and anything else counts as `UNKNOWN`. Every API contract is documented with sources in [docs/provider-apis.md](docs/provider-apis.md).
 
 ## Adding a provider
 

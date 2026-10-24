@@ -12,6 +12,7 @@ import io.github.hozdemir.smstr.http.ProviderHttp;
 import io.github.hozdemir.smstr.provider.iletimerkezi.IletiMerkeziSmsProvider;
 import io.github.hozdemir.smstr.provider.mutlucell.MutlucellSmsProvider;
 import io.github.hozdemir.smstr.provider.netgsm.NetgsmSmsProvider;
+import io.github.hozdemir.smstr.provider.vatansms.VatanSmsProvider;
 import io.github.hozdemir.smstr.provider.verimor.VerimorSmsProvider;
 
 /** A built-in provider is registered once its credentials are configured. */
@@ -67,6 +68,18 @@ class BuiltInProvidersConfiguration {
                 required(mutlucell.sender(), "sms.mutlucell.sender"),
                 mutlucell.brandCode()),
                 restClient(builder, mutlucell.baseUrl(), properties));
+    }
+
+    @Bean
+    @ConditionalOnProperty("sms.vatansms.api-id")
+    @ConditionalOnMissingBean(VatanSmsProvider.class)
+    VatanSmsProvider vatanSmsProvider(SmsProperties properties, ObjectProvider<RestClient.Builder> builder) {
+        SmsProperties.VatanSms vatanSms = properties.vatansms();
+        return new VatanSmsProvider(new VatanSmsProvider.Settings(
+                required(vatanSms.apiId(), "sms.vatansms.api-id"),
+                required(vatanSms.apiKey(), "sms.vatansms.api-key"),
+                required(vatanSms.sender(), "sms.vatansms.sender")),
+                restClient(builder, vatanSms.baseUrl(), properties));
     }
 
     private static RestClient restClient(ObjectProvider<RestClient.Builder> builder, String baseUrl,

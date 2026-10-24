@@ -14,6 +14,7 @@ public record ProviderId(String value) {
     public static final ProviderId ILETIMERKEZI = new ProviderId("iletimerkezi");
     public static final ProviderId VERIMOR = new ProviderId("verimor");
     public static final ProviderId MUTLUCELL = new ProviderId("mutlucell");
+    public static final ProviderId VATANSMS = new ProviderId("vatansms");
 
     public ProviderId {
         if (!VALID.matcher(value).matches()) {
