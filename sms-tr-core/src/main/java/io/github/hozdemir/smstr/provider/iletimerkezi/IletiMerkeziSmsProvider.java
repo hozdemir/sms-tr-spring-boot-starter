@@ -117,7 +117,7 @@ public final class IletiMerkeziSmsProvider implements SmsProvider, DeliveryRepor
         for (int page = 1;; page++) {
             JsonNode json;
             try {
-                json = call("/v1/get-report/json", Map.of("id", messageId.value(), "page", page,
+                json = call("/v1/get-report/json", Map.of("id", orderId(messageId), "page", page,
                         "rowCount", REPORT_PAGE_SIZE));
             }
             catch (SmsProviderException e) {
@@ -150,6 +150,11 @@ public final class IletiMerkeziSmsProvider implements SmsProvider, DeliveryRepor
         return List.of(new DeliveryReport(new MessageId(ID, report.path("packet_id").asString()),
                 PhoneNumber.of(report.path("to").asString()),
                 WEBHOOK_STATUSES.getOrDefault(status, DeliveryStatus.UNKNOWN), status, null));
+    }
+
+    /** The documented report request carries the order id as a JSON number. */
+    private static Object orderId(MessageId messageId) {
+        return messageId.value().matches("\\d{1,18}") ? Long.parseLong(messageId.value()) : messageId.value();
     }
 
     private JsonNode call(String path, Map<String, Object> order) {

@@ -42,7 +42,7 @@ class SmsWebhookConfiguration {
                     + "when sms.webhook.enabled=true; it authenticates provider callbacks.");
         }
         byte[] expected = token.getBytes(StandardCharsets.UTF_8);
-        String pattern = webhook.path() + "/{provider}/{token}";
+        String pattern = webhook.path().replaceAll("/+$", "") + "/{provider}/{token}";
         return RouterFunctions.route()
                 .GET(pattern, request -> handle(handler, expected, request))
                 .POST(pattern, request -> handle(handler, expected, request))

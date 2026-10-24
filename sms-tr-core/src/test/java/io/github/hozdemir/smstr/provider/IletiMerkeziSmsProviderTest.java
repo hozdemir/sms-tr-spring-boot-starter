@@ -91,7 +91,7 @@ class IletiMerkeziSmsProviderTest {
     void parsesPullReport() {
         server.expect(requestTo(BASE + "/v1/get-report/json"))
                 .andExpect(content().json("""
-                        {"request":{"order":{"id":"312891245","page":1,"rowCount":1000}}}"""))
+                        {"request":{"order":{"id":312891245,"page":1,"rowCount":1000}}}"""))
                 .andRespond(withSuccess("""
                         {"response":{"status":{"code":200},"order":{"id":"312891245","status":114,
                           "message":[{"number":"+905333128320","status":111},{"number":"+905321234567","status":110}]}}}""",

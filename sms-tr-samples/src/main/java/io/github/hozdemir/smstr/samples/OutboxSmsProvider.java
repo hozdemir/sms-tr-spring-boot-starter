@@ -49,6 +49,9 @@ public class OutboxSmsProvider implements SmsProvider, DeliveryReportQuery {
     @Override
     public List<DeliveryReport> fetchReports(MessageId messageId) {
         int index = Integer.parseInt(messageId.value()) - 1;
+        if (index < 0 || index >= messages.size()) {
+            return List.of();
+        }
         return messages.get(index).recipients().stream()
                 .map(to -> new DeliveryReport(messageId, to, DeliveryStatus.DELIVERED, "outbox", null))
                 .toList();

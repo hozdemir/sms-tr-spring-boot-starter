@@ -9,6 +9,8 @@ import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.ZoneId;
 
+import javax.net.ssl.SSLHandshakeException;
+
 import org.jspecify.annotations.Nullable;
 import org.springframework.http.client.JdkClientHttpRequestFactory;
 import org.springframework.web.client.ResourceAccessException;
@@ -41,10 +43,8 @@ public final class ProviderHttp {
 
     public static RestClient restClient(RestClient.Builder builder, String baseUrl, Duration connectTimeout,
             Duration readTimeout) {
-        HttpClient httpClient = HttpClient.newBuilder()
-                .connectTimeout(connectTimeout)
-                .followRedirects(HttpClient.Redirect.NORMAL)
-                .build();
+        // Redirects stay off: following a 302 would turn a POST into a GET without its body.
+        HttpClient httpClient = HttpClient.newBuilder().connectTimeout(connectTimeout).build();
         JdkClientHttpRequestFactory requestFactory = new JdkClientHttpRequestFactory(httpClient);
         requestFactory.setReadTimeout(readTimeout);
         return builder.clone().baseUrl(baseUrl).requestFactory(requestFactory).build();
@@ -76,7 +76,8 @@ public final class ProviderHttp {
     private static boolean neverSent(Throwable e) {
         for (Throwable cause = e; cause != null; cause = cause.getCause()) {
             if (cause instanceof ConnectException || cause instanceof HttpConnectTimeoutException
-                    || cause instanceof UnknownHostException || cause instanceof NoRouteToHostException) {
+                    || cause instanceof UnknownHostException || cause instanceof NoRouteToHostException
+                    || cause instanceof SSLHandshakeException) {
                 return true;
             }
         }
