@@ -10,7 +10,7 @@
     <packaging>pom</packaging>
 
     <name>SMS TR Parent</name>
-    <description>Spring Boot starter for Turkish SMS providers (Netgsm, İleti Merkezi, Verimor, Mutlucell)</description>
+    <description>Spring Boot starter for Turkish SMS providers (Netgsm, İleti Merkezi, Verimor, Mutlucell, VatanSMS)</description>
     <url>https://github.com/hozdemir/sms-tr-spring-boot-starter</url>
 
     <licenses>
@@ -38,6 +38,7 @@
         <module>sms-tr-core</module>
         <module>sms-tr-spring-boot-autoconfigure</module>
         <module>sms-tr-spring-boot-starter</module>
+        <module>sms-tr-samples</module>
     </modules>
 
     <properties>
@@ -173,6 +174,9 @@
                         <extensions>true</extensions>
                         <configuration>
                             <publishingServerId>central</publishingServerId>
+                            <excludeArtifacts>
+                                <excludeArtifact>sms-tr-samples</excludeArtifact>
+                            </excludeArtifacts>
                             <autoPublish>false</autoPublish>
                         </configuration>
                     </plugin>

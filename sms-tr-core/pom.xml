@@ -12,7 +12,7 @@
 
     <artifactId>sms-tr-core</artifactId>
     <name>SMS TR Core</name>
-    <description>Provider-agnostic SMS API, OTP and delivery reports with Netgsm, İleti Merkezi, Verimor and Mutlucell providers</description>
+    <description>Provider-agnostic SMS API, OTP and delivery reports with Netgsm, İleti Merkezi, Verimor, Mutlucell and VatanSMS providers</description>
 
     <dependencies>
         <dependency>

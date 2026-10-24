@@ -68,7 +68,7 @@ public record SmsProperties(
 
     /**
      * @param username subscriber number (abone numarası)
-     * @param password password of an "API Kullanıcısı" sub-user; the main account password is refused
+     * @param password password of an "API Kullanıcısı" (API user) sub-user; the main account password is refused
      * @param otpEndpoint send OTP messages through Netgsm's OTP route; needs an OTP package on the account
      */
     public record Netgsm(
@@ -113,7 +113,7 @@ public record SmsProperties(
     }
 
     /**
-     * @param apiId shown under Hesabım > API Bilgilerimi Görüntüle, next to the key
+     * @param apiId shown under Hesabım > API Bilgilerimi Görüntüle (My Account > View API Details), next to the key
      */
     public record VatanSms(
             @Nullable String apiId,

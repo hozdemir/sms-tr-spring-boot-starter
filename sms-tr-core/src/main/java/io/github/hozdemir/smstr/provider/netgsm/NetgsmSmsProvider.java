@@ -39,7 +39,7 @@ public final class NetgsmSmsProvider implements SmsProvider, DeliveryReportQuery
 
     /**
      * @param username subscriber number (abone numarası)
-     * @param password password of an "API Kullanıcısı" sub-user; the main account password is refused
+     * @param password password of an "API Kullanıcısı" (API user) sub-user; the main account password is refused
      * @param otpEndpoint send {@link MessageType#OTP} messages through {@code /sms/rest/v2/otp}, Netgsm's priority
      *     route. Needs an OTP package on the account; Turkish letters are transliterated because the route
      *     rejects them.

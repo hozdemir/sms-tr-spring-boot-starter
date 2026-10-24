@@ -36,7 +36,7 @@ import tools.jackson.databind.JsonNode;
 
 /**
  * Verimor SMS API ({@code https://github.com/verimor/SMS-API}). The sending server's IP must be allowed in
- * OİM > SMS Ayarları. Status queries are limited to 20 per minute per account.
+ * OİM > SMS Ayarları (SMS settings). Status queries are limited to 20 per minute per account.
  */
 public final class VerimorSmsProvider implements SmsProvider, DeliveryReportQuery, DeliveryReportWebhook {
 

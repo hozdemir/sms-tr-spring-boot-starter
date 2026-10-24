@@ -11,6 +11,16 @@ A Spring Boot 4 starter for Turkish SMS providers. Netgsm, İleti Merkezi, Verim
 
 Requirements: Java 17+, Spring Boot 4.x.
 
+## Supported providers
+
+| Provider | Website | API documentation |
+|---|---|---|
+| Netgsm | [netgsm.com.tr](https://www.netgsm.com.tr) | [netgsm.com.tr/dokuman](https://www.netgsm.com.tr/dokuman/) |
+| İleti Merkezi | [iletimerkezi.com](https://www.iletimerkezi.com) | [iletimerkezi.com/en/docs/api](https://www.iletimerkezi.com/en/docs/api) |
+| Verimor | [verimor.com.tr](https://www.verimor.com.tr) | [docs.verimor.com.tr](https://docs.verimor.com.tr), [github.com/verimor/SMS-API](https://github.com/verimor/SMS-API) |
+| Mutlucell | [mutlucell.com.tr](https://www.mutlucell.com.tr) | [mutlucell.com.tr/api](https://www.mutlucell.com.tr/api/) |
+| VatanSMS | [vatansms.net](https://www.vatansms.net) | [vatansms.net/sms-api](https://www.vatansms.net/sms-api) |
+
 ## Installation
 
 ```xml
@@ -34,7 +44,7 @@ sms:
 
   netgsm:
     username: 8501234567         # subscriber number (abone numarası)
-    password: ${NETGSM_PASSWORD} # password of an "API Kullanıcısı" sub-user
+    password: ${NETGSM_PASSWORD} # password of an "API Kullanıcısı" (API user) sub-user
     sender: MYBRAND
     otp-endpoint: false          # true: OTPs use Netgsm's priority OTP route (needs an OTP package)
 
@@ -55,7 +65,7 @@ sms:
     brand-code: "123456"         # İYS brand code, only for commercial messages
 
   vatansms:
-    api-id: ${VATANSMS_API_ID}   # Hesabım > API Bilgilerimi Görüntüle
+    api-id: ${VATANSMS_API_ID}   # Hesabım > API Bilgilerimi Görüntüle (My Account > View API Details)
     api-key: ${VATANSMS_API_KEY}
     sender: MYBRAND
 
@@ -85,13 +95,13 @@ class OrderNotifications {
     }
 
     void shipped(String phone) {
-        sms.send(phone, "Siparişiniz kargoya verildi.");
+        sms.send(phone, "Your order has shipped.");
     }
 
     void campaign(List<PhoneNumber> recipients) {
         SendResult result = sms.send(SmsMessage.builder()
                 .to(recipients)
-                .text("Hafta sonuna özel %20 indirim")
+                .text("20% off this weekend only")
                 .type(MessageType.COMMERCIAL_INDIVIDUAL)
                 .scheduledAt(Instant.parse("2026-11-01T07:00:00Z"))
                 .build());
@@ -142,6 +152,8 @@ sms:
     template: "Doğrulama kodunuz: {code}"
 ```
 
+Without a `template`, the message is Turkish (`Doğrulama kodunuz: {code}`, "Your verification code"), since recipients are Turkish numbers.
+
 The default `InMemoryOtpStore` suits a single instance. With several instances, define a shared `OtpStore` bean, for example on Redis. The only operation that must be atomic is `incrementAttempts`.
 
 ### Delivery reports
@@ -171,6 +183,21 @@ void on(SmsEvent.DeliveryReportReceived event) { ... }
 ```
 
 `SmsEvent.Sent` and `SmsEvent.Failed` are published as well.
+
+### Sending asynchronously
+
+`SmsClient.send` blocks while it retries and fails over, which can take seconds. To keep that off a request thread, call it from your own executor; the starter does not add one.
+
+```java
+@Async
+public void orderShipped(String phone) {
+    sms.send(phone, "Your order has shipped.");
+}
+```
+
+Enable it with `@EnableAsync`. On Java 21+, `spring.threads.virtual.enabled=true` makes Spring Boot's task executor use virtual threads, so blocking calls are cheap. A failure inside an `@Async` method has no caller to reach, so listen for `SmsEvent.Failed` to see it.
+
+This is in-process: a message still waiting when the application stops is lost. If messages must survive restarts, store them first (a transactional outbox in your database) and send from that table.
 
 ### Provider differences
 
@@ -212,11 +239,33 @@ Make it the default with `sms.default-provider=acme`, or add it to `sms.fallback
 
 Every bean the starter defines (`SmsClient`, `OtpStore`, `ResiliencePolicy`, the built-in providers) backs off when you define your own bean of the same type.
 
+## Examples
+
+[`sms-tr-samples`](sms-tr-samples) is a runnable application that CI builds and tests on every change:
+
+- [`OrderNotifications`](sms-tr-samples/src/main/java/io/github/hozdemir/smstr/samples/OrderNotifications.java) sends a transactional notice and a scheduled commercial campaign, then checks delivery.
+- [`OtpController`](sms-tr-samples/src/main/java/io/github/hozdemir/smstr/samples/OtpController.java) runs a login OTP flow over HTTP, including the resend cooldown (`429` with `Retry-After`).
+- [`SmsEventLogger`](sms-tr-samples/src/main/java/io/github/hozdemir/smstr/samples/SmsEventLogger.java) reacts to sent, failed and delivery report events.
+- [`OutboxSmsProvider`](sms-tr-samples/src/main/java/io/github/hozdemir/smstr/samples/OutboxSmsProvider.java) is a custom provider that logs messages instead of sending them. It is useful in development and tests.
+- [`application-prod.yml`](sms-tr-samples/src/main/resources/application-prod.yml) configures Netgsm with Verimor as fallback, plus the webhook.
+
+Run it without any provider account; messages go to the log:
+
+```bash
+./mvnw -pl sms-tr-samples -am install -DskipTests
+java -jar sms-tr-samples/target/sms-tr-samples-0.1.0-SNAPSHOT.jar
+
+curl -X POST localhost:8080/otp/send -H 'Content-Type: application/json' -d '{"phone":"05321234567"}'
+# read the code from the log, then:
+curl -X POST localhost:8080/otp/verify -H 'Content-Type: application/json' -d '{"phone":"05321234567","code":"<code>"}'
+```
+
 ## Modules
 
 - `sms-tr-core` does not depend on Spring Boot. It holds the domain model, the client, OTP and the providers.
 - `sms-tr-spring-boot-autoconfigure` holds the auto-configuration and the properties.
 - `sms-tr-spring-boot-starter` is the single dependency an application adds.
+- `sms-tr-samples` holds the examples. It is not published.
 
 ## Development and release
 

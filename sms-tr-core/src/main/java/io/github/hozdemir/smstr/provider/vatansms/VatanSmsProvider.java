@@ -29,7 +29,7 @@ public final class VatanSmsProvider implements SmsProvider {
     public static final String DEFAULT_BASE_URL = "https://api.vatansms.net";
 
     /**
-     * @param apiId shown under Hesabım > API Bilgilerimi Görüntüle, next to the key
+     * @param apiId shown under Hesabım > API Bilgilerimi Görüntüle (My Account > View API Details), next to the key
      */
     public record Settings(String apiId, String apiKey, String sender) {
     }

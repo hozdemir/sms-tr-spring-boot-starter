@@ -6,16 +6,16 @@ package io.github.hozdemir.smstr;
  */
 public enum MessageType {
 
-    /** Bilgilendirme: order status, appointment reminders. Not subject to İYS consent. */
+    /** Informational (bilgilendirme): order status, appointment reminders. Not subject to İYS consent. */
     TRANSACTIONAL,
 
     /** One-time password. Transactional, and routed to a provider's OTP channel where one exists. */
     OTP,
 
-    /** Ticari ileti to individuals (İYS "BIREYSEL"); delivered only to recipients with consent. */
+    /** Commercial message (ticari ileti) to individuals (İYS "BIREYSEL"); delivered only with consent. */
     COMMERCIAL_INDIVIDUAL,
 
-    /** Ticari ileti to merchants (İYS "TACIR"). */
+    /** Commercial message to merchants (İYS "TACIR"). */
     COMMERCIAL_MERCHANT;
 
     public boolean isCommercial() {

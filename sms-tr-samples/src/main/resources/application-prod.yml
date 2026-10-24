@@ -1,0 +1,15 @@
+# Real providers: Netgsm first, Verimor when Netgsm fails with a failure that allows failover.
+sms:
+  default-provider: netgsm
+  fallback: [verimor]
+  netgsm:
+    username: ${NETGSM_USERNAME}
+    password: ${NETGSM_PASSWORD}
+    sender: ${SMS_SENDER}
+  verimor:
+    username: ${VERIMOR_USERNAME}
+    password: ${VERIMOR_PASSWORD}
+    sender: ${SMS_SENDER}
+  webhook:
+    enabled: true
+    token: ${SMS_WEBHOOK_TOKEN}
