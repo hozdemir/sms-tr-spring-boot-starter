@@ -52,10 +52,9 @@ public final class DefaultSmsClient implements SmsClient {
     public SendResult send(SmsMessage message) {
         SmsProviderException failure = null;
         for (ProviderId id : route) {
+            SendResult result;
             try {
-                SendResult result = sendWithRetry(providers.get(id), message);
-                events.publish(new SmsEvent.Sent(message, result));
-                return result;
+                result = sendWithRetry(providers.get(id), message);
             }
             catch (SmsProviderException e) {
                 if (failure != null) {
@@ -66,10 +65,23 @@ public final class DefaultSmsClient implements SmsClient {
                     break;
                 }
                 log.warn("SMS provider '" + id + "' failed, trying the next one: " + e.getMessage());
+                continue;
             }
+            publish(new SmsEvent.Sent(message, result));
+            return result;
         }
-        events.publish(new SmsEvent.Failed(message, failure));
+        publish(new SmsEvent.Failed(message, failure));
         throw failure;
+    }
+
+    /** A listener bug must not make a sent message look failed; the caller could send it again. */
+    private void publish(SmsEvent event) {
+        try {
+            events.publish(event);
+        }
+        catch (RuntimeException e) {
+            log.error("SMS event listener failed for " + event.getClass().getSimpleName(), e);
+        }
     }
 
     private SendResult sendWithRetry(SmsProvider provider, SmsMessage message) {

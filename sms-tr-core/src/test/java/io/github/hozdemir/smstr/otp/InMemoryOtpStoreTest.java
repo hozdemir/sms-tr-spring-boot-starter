@@ -3,6 +3,7 @@ package io.github.hozdemir.smstr.otp;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.time.Clock;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.Set;
@@ -21,13 +22,17 @@ class InMemoryOtpStoreTest {
 
     private final OtpStore store = new InMemoryOtpStore(Clock.systemUTC());
 
+    private void save(String key, OtpStore.Entry entry) {
+        store.saveUnlessRecent(key, entry, Duration.ZERO);
+    }
+
     private static OtpStore.Entry entry(String hash) {
         return new OtpStore.Entry(hash, "salt", NOW, NOW.plusSeconds(180));
     }
 
     @Test
     void findsWhatWasSaved() {
-        store.save("login:905321234567", entry("h1"));
+        save("login:905321234567", entry("h1"));
 
         assertThat(store.find("login:905321234567")).contains(entry("h1"));
     }
@@ -39,23 +44,35 @@ class InMemoryOtpStoreTest {
 
     @Test
     void saveReplacesEntryAndResetsAttempts() {
-        store.save("k", entry("h1"));
+        save("k", entry("h1"));
         store.incrementAttempts("k");
         store.incrementAttempts("k");
 
-        store.save("k", entry("h2"));
+        save("k", entry("h2"));
 
         assertThat(store.find("k")).contains(entry("h2"));
         assertThat(store.incrementAttempts("k")).isEqualTo(1);
     }
 
     @Test
-    void deleteRemovesEntry() {
-        store.save("k", entry("h1"));
+    void removeDeletesOnlyTheEntryItWasGiven() {
+        save("k", entry("h1"));
 
-        store.delete("k");
-
+        assertThat(store.remove("k", entry("other"))).isFalse();
+        assertThat(store.remove("k", entry("h1"))).isTrue();
+        assertThat(store.remove("k", entry("h1"))).isFalse();
         assertThat(store.find("k")).isEmpty();
+    }
+
+    @Test
+    void recentEntryBlocksAnotherUntilCooldownPasses() {
+        save("k", entry("h1"));
+        OtpStore.Entry tooSoon = new OtpStore.Entry("h2", "salt", NOW.plusSeconds(59), NOW.plusSeconds(240));
+        OtpStore.Entry later = new OtpStore.Entry("h3", "salt", NOW.plusSeconds(60), NOW.plusSeconds(240));
+
+        assertThat(store.saveUnlessRecent("k", tooSoon, Duration.ofSeconds(60))).contains(entry("h1"));
+        assertThat(store.saveUnlessRecent("k", later, Duration.ofSeconds(60))).isEmpty();
+        assertThat(store.find("k")).contains(later);
     }
 
     @Test
@@ -66,7 +83,7 @@ class InMemoryOtpStoreTest {
 
     @Test
     void concurrentAttemptsAreCountedOnceEach() throws Exception {
-        store.save("k", entry("h1"));
+        save("k", entry("h1"));
         ExecutorService pool = Executors.newFixedThreadPool(8);
         try {
             List<Callable<Integer>> attempts = IntStream.range(0, 50)

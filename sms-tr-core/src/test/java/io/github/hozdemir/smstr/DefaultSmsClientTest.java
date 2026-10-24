@@ -146,6 +146,29 @@ class DefaultSmsClientTest {
     }
 
     @Test
+    void failingListenerDoesNotTurnASentMessageIntoAFailure() {
+        ScriptedProvider primary = new ScriptedProvider("primary", (FailureKind) null);
+        SmsClient client = new DefaultSmsClient(SmsProviders.of(List.of(primary)), List.of(primary.id()), FAST,
+                event -> {
+                    throw new IllegalStateException("listener bug");
+                });
+
+        assertThat(client.send(MESSAGE).provider()).isEqualTo(ProviderId.of("primary"));
+        assertThat(primary.calls).isEqualTo(1);
+    }
+
+    @Test
+    void failingListenerDoesNotHideTheSendFailure() {
+        ScriptedProvider primary = new ScriptedProvider("primary", FailureKind.INVALID_REQUEST);
+        SmsClient client = new DefaultSmsClient(SmsProviders.of(List.of(primary)), List.of(primary.id()), FAST,
+                event -> {
+                    throw new IllegalStateException("listener bug");
+                });
+
+        assertThatThrownBy(() -> client.send(MESSAGE)).isInstanceOf(SmsProviderException.class);
+    }
+
+    @Test
     void rejectsRouteNamingUnknownProvider() {
         ScriptedProvider primary = new ScriptedProvider("primary", (FailureKind) null);
 

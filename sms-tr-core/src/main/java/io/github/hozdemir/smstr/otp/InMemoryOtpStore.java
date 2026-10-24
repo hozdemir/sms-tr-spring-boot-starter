@@ -1,10 +1,13 @@
 package io.github.hozdemir.smstr.otp;
 
 import java.time.Clock;
+import java.time.Duration;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 
 public final class InMemoryOtpStore implements OtpStore {
 
@@ -24,9 +27,17 @@ public final class InMemoryOtpStore implements OtpStore {
     }
 
     @Override
-    public void save(String key, Entry entry) {
+    public Optional<Entry> saveUnlessRecent(String key, Entry entry, Duration cooldown) {
         slots.values().removeIf(slot -> slot.entry().expiresAt().isBefore(clock.instant()));
-        slots.put(key, new Slot(entry, new AtomicInteger()));
+        AtomicReference<Entry> blocking = new AtomicReference<>();
+        slots.compute(key, (k, current) -> {
+            if (current != null && entry.sentAt().isBefore(current.entry().sentAt().plus(cooldown))) {
+                blocking.set(current.entry());
+                return current;
+            }
+            return new Slot(entry, new AtomicInteger());
+        });
+        return Optional.ofNullable(blocking.get());
     }
 
     @Override
@@ -36,7 +47,15 @@ public final class InMemoryOtpStore implements OtpStore {
     }
 
     @Override
-    public void delete(String key) {
-        slots.remove(key);
+    public boolean remove(String key, Entry entry) {
+        AtomicBoolean removed = new AtomicBoolean();
+        slots.computeIfPresent(key, (k, current) -> {
+            if (!current.entry().equals(entry)) {
+                return current;
+            }
+            removed.set(true);
+            return null;
+        });
+        return removed.get();
     }
 }

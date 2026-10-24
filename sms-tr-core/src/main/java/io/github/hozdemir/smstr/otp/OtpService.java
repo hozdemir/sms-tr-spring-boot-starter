@@ -44,18 +44,14 @@ public final class OtpService {
     public OtpSendResult send(PhoneNumber to, String purpose) {
         String key = key(to, purpose);
         Instant now = clock.instant();
-        Optional<OtpStore.Entry> previous = store.find(key);
-        if (previous.isPresent()) {
-            Instant nextAllowed = previous.get().sentAt().plus(policy.resendCooldown());
-            if (now.isBefore(nextAllowed)) {
-                return new OtpSendResult.Throttled(Duration.between(now, nextAllowed));
-            }
-        }
-
         String code = generateCode();
         String salt = HexFormat.of().formatHex(randomBytes(16));
-        Instant expiresAt = now.plus(policy.ttl());
-        store.save(key, new OtpStore.Entry(hash(salt, code), salt, now, expiresAt));
+        OtpStore.Entry entry = new OtpStore.Entry(hash(salt, code), salt, now, now.plus(policy.ttl()));
+
+        Optional<OtpStore.Entry> recent = store.saveUnlessRecent(key, entry, policy.resendCooldown());
+        if (recent.isPresent()) {
+            return new OtpSendResult.Throttled(Duration.between(now, recent.get().sentAt().plus(policy.resendCooldown())));
+        }
 
         SmsMessage message = SmsMessage.builder()
                 .to(to)
@@ -64,10 +60,10 @@ public final class OtpService {
                 .build();
         try {
             SendResult result = smsClient.send(message);
-            return new OtpSendResult.Sent(result, expiresAt);
+            return new OtpSendResult.Sent(result, entry.expiresAt());
         }
         catch (RuntimeException e) {
-            store.delete(key);
+            store.remove(key, entry);
             throw e;
         }
     }
@@ -84,11 +80,11 @@ public final class OtpService {
         }
         OtpStore.Entry entry = found.get();
         if (!clock.instant().isBefore(entry.expiresAt())) {
-            store.delete(key);
+            store.remove(key, entry);
             return OtpVerification.EXPIRED;
         }
         if (store.incrementAttempts(key) > policy.maxAttempts()) {
-            store.delete(key);
+            store.remove(key, entry);
             return OtpVerification.TOO_MANY_ATTEMPTS;
         }
         boolean matches = MessageDigest.isEqual(
@@ -97,8 +93,8 @@ public final class OtpService {
         if (!matches) {
             return OtpVerification.INVALID_CODE;
         }
-        store.delete(key);
-        return OtpVerification.VERIFIED;
+        // Only the request that removes the code may use it; a concurrent request with the same code gets NOT_FOUND.
+        return store.remove(key, entry) ? OtpVerification.VERIFIED : OtpVerification.NOT_FOUND;
     }
 
     private static String key(PhoneNumber phoneNumber, String purpose) {

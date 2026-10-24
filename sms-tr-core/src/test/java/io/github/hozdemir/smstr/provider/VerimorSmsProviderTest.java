@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.content;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.method;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.requestTo;
+import static org.springframework.test.web.client.response.MockRestResponseCreators.withException;
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withStatus;
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withSuccess;
 
@@ -120,6 +121,20 @@ class VerimorSmsProviderTest {
                         Instant.parse("2015-02-20T14:06:00Z")),
                 new DeliveryReport(id, PhoneNumber.of("5321234567"), DeliveryStatus.REJECTED, "NOT_ALLOWED_BY_IYS",
                         null));
+    }
+
+    @Test
+    void transportFailureDoesNotLeakThePasswordFromTheQueryString() {
+        server.expect(requestTo(BASE + "/v2/status?username=908501234567&password=p%26ss%2Bword&id=1"))
+                .andRespond(withException(new java.net.SocketTimeoutException("Read timed out")));
+
+        assertThatThrownBy(() -> provider.fetchReports(new MessageId(ProviderId.VERIMOR, "1")))
+                .isInstanceOfSatisfying(SmsProviderException.class, e -> {
+                    assertThat(e.kind()).isEqualTo(FailureKind.AMBIGUOUS);
+                    for (Throwable t = e; t != null; t = t.getCause()) {
+                        assertThat(String.valueOf(t.getMessage())).doesNotContain("p%26ss").doesNotContain("p&ss");
+                    }
+                });
     }
 
     @Test
